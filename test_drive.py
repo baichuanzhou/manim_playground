@@ -24,6 +24,7 @@ class MyButton(ControlMobject):
         return False
 
 
+
 class TestControlM(Scene):
     def construct(self) -> None:
         test = SpiralDataSet()
@@ -52,6 +53,7 @@ class HiddenLayerControl(ControlMobject):
     def on_mouse_press(self, mob: Mobject, event_data):
         mob.toggle_value()
         return False
+
 
 class DataSet(VGroup):
     get_pressed = 0
@@ -121,3 +123,5 @@ class TestSliders(Scene):
     def construct(self):
         slider = LinearNumberSlider()
         self.add(slider)
+
+
