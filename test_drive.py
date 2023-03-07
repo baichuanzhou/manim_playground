@@ -1,7 +1,7 @@
 from manimlib import *
 import numpy as np
 import torch
-
+from playground_v2 import ManimNeuralNet
 
 class MyButton(ControlMobject):
     def __init__(self, value: int = 0, *args, **kwargs):
@@ -119,9 +119,7 @@ class SpiralDataSet(DataSet):
                 self.y[ix] = i
                 index += 1
 
-class TestSliders(Scene):
-    def construct(self):
-        slider = LinearNumberSlider()
-        self.add(slider)
+
+
 
 
