@@ -629,6 +629,8 @@ class Backup(Scene):
         self.dataset.to_edge(RIGHT)
         self.add(self.dataset)
 
+        self.show_datasets = self.datasets.copy().scale(2.5)
+
     def check_pressed(self, mob: Mobject, point: np.ndarray):
         bounding_box = mob.get_bounding_box()
         return bounding_box[0][0] < point[0] < bounding_box[2][0] and \
@@ -636,13 +638,13 @@ class Backup(Scene):
 
     def press_datasets(self, point: np.ndarray):
         if self.check_pressed(self.datasets[0], point):
-            return self.datasets[0].copy()
+            return self.show_datasets[0]
         elif self.check_pressed(self.datasets[1], point):
-            return self.datasets[1].copy()
+            return self.show_datasets[1]
         elif self.check_pressed(self.datasets[2], point):
-            return self.datasets[2].copy()
+            return self.show_datasets[2]
         elif self.check_pressed(self.datasets[3], point):
-            return self.datasets[3].copy()
+            return self.show_datasets[3]
         return None
 
     def reset(self, point):
@@ -653,6 +655,12 @@ class Backup(Scene):
         self.layers_size = []
         self.model = None
         self.optimizer = None
+
+        if self.press_datasets(point) and (self.press_datasets(point).name != self.dataset.name):
+            self.dataset = self.press_datasets(point).center().to_edge(RIGHT)
+            self.add(self.dataset)
+        else:
+            self.add(self.dataset)
 
         if self.check_pressed(self.create_button, point):
             now_layers_size = [hidden_layer_control.number.get_value()
@@ -675,6 +683,8 @@ class Backup(Scene):
             self.dropout = self.dropout_slider.get_value()
             self.batch_size = self.batch_size_slider.get_value()
 
+
+
             self.model = NeuralNet(self.layers_size, dropout=self.dropout)
             self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
             self.ax = Axes(
@@ -691,11 +701,6 @@ class Backup(Scene):
             )
             # self.add(self.ax, self.graph)
 
-        if self.press_datasets(point) and (self.press_datasets(point).name != self.dataset.name):
-            self.dataset = self.press_datasets(point).scale(2.5).center().to_edge(RIGHT)
-            self.add(self.dataset)
-        else:
-            self.add(self.dataset)
 
     def need_reset(self, point: np.ndarray):
         return self.check_pressed(self.create_button, point) or self.learning_rate != \
@@ -877,7 +882,7 @@ def get_data_xor(n=200, d=2, std=0):
 class DataSet(VGroup):
     def __init__(self, generate_func, noise=0.5, *args, **kwargs):
         VGroup.__init__(self, *args, **kwargs)
-        bounding_box = Square(1, stroke_width=1).set_fill(GREY_C, opacity=0.7)
+        bounding_box = Square(1, stroke_width=1).set_color(WHITE)
         self.add(bounding_box)
         self.x_number_line = NumberLine(
             x_range=[-6, 6, 1],
@@ -904,7 +909,7 @@ class DataSet(VGroup):
 
     def add_datapoints(self):
         X, y = self.generate_func(n=1000, std=self.noise)
-        colors = [RED_A, BLUE_A, PURPLE, YELLOW, PINK]
+        colors = [RED_C, BLUE_C, PURPLE, YELLOW, PINK]
         x_line_pos = self.x_number_line.n2p(X[:, 0])
         y_line_pos = self.y_number_line.n2p(X[:, 1])
         y_diff = y_line_pos[:, 1] - x_line_pos[:, 1]
@@ -958,20 +963,20 @@ def optimizer_to(optim, device=device):
 
 class ShowTraining(Scene):
     def construct(self) -> None:
-        self.dataset = DataSet(get_data_gaussian).scale(2.5)
+        self.dataset = DataSet(get_data_spiral, noise=0.1).scale(2.5)
         self.add(self.dataset)
         self.dots = VGroup()
-        self.colors = [RED_C, BLUE_C]
+        self.colors = [RED, BLUE]
 
-        self.xs = torch.linspace(-6, 6, steps=60)
-        self.ys = torch.linspace(-6, 6, steps=60)
+        self.xs = torch.linspace(-6, 6, steps=40)
+        self.ys = torch.linspace(-6, 6, steps=40)
 
         self.xx, self.yy = torch.meshgrid(self.xs, self.ys, indexing='xy')
-        self.x_in = torch.cat((self.xx.resize(3600, 1), self.yy.resize(3600, 1)), 1)
-        self.xx = self.xx.resize(3600, 1)
-        self.yy = self.yy.resize(3600, 1)
+        self.x_in = torch.cat((self.xx.resize(1600, 1), self.yy.resize(1600, 1)), 1)
+        self.xx = self.xx.resize(1600, 1)
+        self.yy = self.yy.resize(1600, 1)
 
-        self.all_preds = torch.randn(3600, 1)
+        self.all_preds = torch.randn(1600, 1)
         self.all_preds[self.all_preds > 0] = 1
         self.all_preds[self.all_preds < 0] = 0
 
@@ -980,7 +985,7 @@ class ShowTraining(Scene):
         y_diff = y_line_pos[:, 1] - self.x_line_pos[:, 1]
         self.x_line_pos[:, 1] += y_diff
 
-        self.dots = VGroup(*[Dot(pos, color=self.colors[int(self.all_preds[i])]).scale(0.25)
+        self.dots = VGroup(*[Dot(pos, color=self.colors[int(self.all_preds[i])]).set_opacity(0.3).scale(0.7)
                              for i, pos in enumerate(self.x_line_pos)])
         self.add(self.dots)
         self.wait()
@@ -993,8 +998,8 @@ class ShowTraining(Scene):
         X_train, y_train = torch.from_numpy(X_train), torch.from_numpy(y_train)
         X_test, y_test = torch.from_numpy(X_test), torch.from_numpy(y_test)
 
-        model = NeuralNet([2, 8, 8, 8, 8, 8], batchnorm=False, use_dropout=True, dropout=0.5)
-        optimizer = optim.Adam(model.parameters())
+        model = NeuralNet([2, 8, 8, 8, 8, 8], batchnorm=True, use_dropout=False, dropout=0.2)
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
 
         criterion = F.cross_entropy
 
@@ -1011,20 +1016,17 @@ class ShowTraining(Scene):
             optimizer.step()
             print(loss.item())
 
-            if epoch % 100 == 0:
+            if epoch % 10 == 0 and epoch != 0:
                 model.eval()
                 self.remove(self.dots)
                 _, self.all_preds = model(self.x_in).max(1)
 
-                self.dots = VGroup(*[Dot(pos, color=self.colors[self.all_preds[i]]).scale(0.25)
+                self.dots = VGroup(*[Dot(pos, color=self.colors[self.all_preds[i]]).set_opacity(0.3).scale(0.7)
                                         for i, pos in enumerate(self.x_line_pos)])
                 self.add(self.dots)
 
                 self.wait()
                 time.sleep(0.001)
-
-
-
 
 
 if __name__ == '__main__':
@@ -1042,7 +1044,7 @@ if __name__ == '__main__':
     # X.to(device='cuda', dtype=torch.float32)
     # y.to(device='cuda', dtype=torch.long)
     model.train()
-    for epoch in range(1000):
+    for epoch in range(100):
         scores = model(X_train)
 
         loss = criterion(scores, y_train)
