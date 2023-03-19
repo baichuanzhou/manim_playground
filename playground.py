@@ -162,8 +162,6 @@ class NeuralNet(nn.Sequential):
             layer = nn.Sequential()
 
             layer.add_module(module=nn.Linear(layers_size[i], layers_size[i + 1]), name=f"Linear{i}")
-            if batchnorm:
-                layer.add_module(module=nn.BatchNorm1d(layers_size[i + 1]), name=f"BatchNorm1d{i}")
 
             if activation == 'ReLU':
                 layer.add_module(module=nn.ReLU(), name=f"{activation}{i}")
@@ -171,6 +169,10 @@ class NeuralNet(nn.Sequential):
                 layer.add_module(module=nn.Sigmoid(), name=f"{activation}{i}")
             else:
                 layer.add_module(module=nn.Tanh(), name=f"{activation}{i}")
+
+            if batchnorm:
+                layer.add_module(module=nn.BatchNorm1d(layers_size[i + 1]), name=f"BatchNorm1d{i}")
+
             if use_dropout:
                 layer.add_module(module=nn.Dropout(p=dropout), name=f"Dropout{i}")
             self.add_module(module=layer, name=f"LinearBlock{i}")
@@ -181,7 +183,6 @@ class PlayGround(Scene):
     features = ['$x_1$', '$x_2$', '${x_1}^2$', '${x_2}^2$', '$x_1x_2$', '$sin(x_1)$', '$sin(x_2)$']
 
     def construct(self) -> None:
-
         self.create_button = MyButton('create').scale(0.3)
         self.create_button.to_edge(DL)
         self.add(self.create_button)
@@ -253,6 +254,14 @@ class PlayGround(Scene):
         # self.dataset.to_edge(RIGHT)
         self.add(self.dataset)
 
+        # self.loss = ValueTracker(0)
+
+        # self.loss_text = TexText(f'Loss: {self.loss.get_value()}').add_updater(
+        #     lambda mob: mob.become(
+        #         TexText(f'Loss: {self.loss.get_value()}')
+        #     ).next_to(self.dataset, UP).scale(0.5).set_color(WHITE)
+        # )
+
     def check_pressed(self, mob: Mobject, point: np.ndarray):
         bounding_box = mob.get_bounding_box()
         return bounding_box[0][0] < point[0] < bounding_box[2][0] and \
@@ -279,6 +288,8 @@ class PlayGround(Scene):
         self.model = None
         self.optimizer = None
         self.stop = True
+        # self.remove(self.loss_text)
+        # self.loss.set_value(0)
 
         if self.press_datasets(point) and (self.press_datasets(point).name != self.dataset.name):
             self.dataset = self.press_datasets(point)
@@ -313,21 +324,9 @@ class PlayGround(Scene):
             #
             ######################################################################
             print(self.dropout)
-            self.model = NeuralNet(self.layers_size, dropout=self.dropout, use_dropout=True, batchnorm=False)
-            self.optimizer = optim.SGD(self.model.parameters(), lr=self.learning_rate)
-            # self.ax = Axes(
-            #     x_range=[0, 100],
-            #     y_range=[0, 10],
-            #     axis_config={'include_numbers': False}
-            # ).scale(0.2).to_edge(UR)
-            # # self.remove(self.ax, self.graph)
-            # self.graph = self.ax.get_graph(lambda x: np.random.normal(size=(1, 200))[0][-101:][int(np.floor(x))] + 4) \
-            #     .add_updater(
-            #     lambda mob: mob.become(
-            #         self.ax.get_graph(lambda x: np.random.normal(size=(1, 200))[0][-101:][int(np.floor(x))] + 4)
-            #     )
-            # )
-            # self.add(self.ax, self.graph)
+            self.model = NeuralNet(self.layers_size, dropout=self.dropout, use_dropout=True, batchnorm=True)
+            self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+
             self.xs = torch.linspace(-6, 6, steps=40)
             self.ys = torch.linspace(-6, 6, steps=40)
 
@@ -351,6 +350,7 @@ class PlayGround(Scene):
                                  for i, pos in enumerate(self.x_line_pos)])
             self.add(self.dots)
             self.stop = False
+            # self.add(self.loss_text)
             self.train()
 
     def update_stop(self):
@@ -390,8 +390,10 @@ class PlayGround(Scene):
                                             for i, pos in enumerate(self.x_line_pos)])
                     self.add(self.dots)
 
-                    self.wait(0.01)
+                    self.wait(0.001)
+                    # self.loss.set_value(loss.item())
                     time.sleep(0.001)
+
             self.stop = self.update_stop()
             if self.stop is True:
                 model.zero_grad()
